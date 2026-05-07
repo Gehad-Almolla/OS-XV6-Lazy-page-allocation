@@ -11,9 +11,11 @@ uint64
 sys_exit(void)
 {
   int n;
+
   argint(0, &n);
   kexit(n);
-  return 0;  // not reached
+
+  return 0; // not reached
 }
 
 uint64
@@ -32,7 +34,9 @@ uint64
 sys_wait(void)
 {
   uint64 p;
+
   argaddr(0, &p);
+
   return kwait(p);
 }
 
@@ -43,22 +47,58 @@ sys_sbrk(void)
   int t;
   int n;
 
+  // Get arguments:
+  // n = number of bytes requested
+  // t = allocation type (eager or lazy)
   argint(0, &n);
   argint(1, &t);
-  addr = myproc()->sz;
 
+  struct proc *p = myproc();
+
+  // Save current process size.
+  // This is the address returned to the user.
+  addr = p->sz;
+
+  // ------------------------------------------------------------
+  // EAGER ALLOCATION
+  // ------------------------------------------------------------
+  //
+  // In eager allocation, physical memory is allocated immediately
+  // using growproc().
+  //
+  // Also, when shrinking memory (n < 0), pages must be unmapped
+  // and freed immediately.
+  //
   if(t == SBRK_EAGER || n < 0) {
+
     if(growproc(n) < 0) {
       return -1;
     }
+
   } else {
-    // Lazily allocate memory for this process: increase its memory
-    // size but don't allocate memory. If the processes uses the
-    // memory, vmfault() will allocate it.
-    if(addr + n < addr)
+
+    // ------------------------------------------------------------
+    // LAZY ALLOCATION
+    // ------------------------------------------------------------
+    //
+    // Instead of allocating physical pages now, we only increase
+    // the virtual address space size of the process.
+    //
+    // Actual memory allocation will happen later when the process
+    // accesses the page and triggers a page fault.
+    //
+
+    // Prevent address overflow.
+    if(addr + n < addr) {
       return -1;
-    myproc()->sz += n;
+    }
+
+    // Increase process size WITHOUT allocating pages.
+    p->sz += n;
   }
+
+  // Return previous process size.
+  // This is the start of newly allocated memory region.
   return addr;
 }
 
@@ -69,18 +109,25 @@ sys_pause(void)
   uint ticks0;
 
   argint(0, &n);
+
   if(n < 0)
     n = 0;
+
   acquire(&tickslock);
+
   ticks0 = ticks;
-  while(ticks - ticks0 < n){
-    if(killed(myproc())){
+
+  while(ticks - ticks0 < n) {
+
+    if(killed(myproc())) {
       release(&tickslock);
       return -1;
     }
-    sleep(&ticks, &tickslock);
+
   }
+
   release(&tickslock);
+
   return 0;
 }
 
@@ -90,11 +137,12 @@ sys_kill(void)
   int pid;
 
   argint(0, &pid);
+
   return kkill(pid);
 }
 
-// return how many clock tick interrupts have occurred
-// since start.
+// Return how many clock tick interrupts have occurred
+// since system startup.
 uint64
 sys_uptime(void)
 {
@@ -103,5 +151,6 @@ sys_uptime(void)
   acquire(&tickslock);
   xticks = ticks;
   release(&tickslock);
+
   return xticks;
 }
