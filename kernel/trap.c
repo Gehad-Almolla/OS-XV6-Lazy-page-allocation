@@ -68,10 +68,24 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if((r_scause() == 15 || r_scause() == 13) &&
-            vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
-    // page fault on lazily-allocated page
+  } else if(r_scause() == 15 || r_scause() == 13) {
+
+    uint64 fault_va = r_stval();   //r_stval() returns the virtual address that caused the page fault.
+  
+
+    if(vmfault(p->pagetable, fault_va, (r_scause() == 13)? 1 : 0) != 0) {
+      //SUCCESS: a fresh physical page is now mapped at fault_va.
+      // nothing to do here, execution continues normally
   } else {
+     printf("usertrap(): page fault could not be handled\n");
+     printf("            pid=%d va=0x%lx scause=0x%lx\n",
+             p->pid, fault_va, r_scause());
+     setkilled(p);   // process will be reaped at the killed() check below
+  
+    } 
+    
+  } else {
+    // Unexpected trap (not syscall, not device interrupt, not page fault).
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
     setkilled(p);
