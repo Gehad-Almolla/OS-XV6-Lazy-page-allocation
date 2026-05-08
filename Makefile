@@ -199,7 +199,6 @@ UPROGS=\
 	$U/_comchannel\
 	$U/_Task\
 	$U/_task5\
-	$U/_task7.1\
 
 ifeq ($(LAB),syscall)
 UPROGS += \
