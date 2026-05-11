@@ -455,20 +455,44 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
   uint64 mem;
   struct proc *p = myproc();
 
+  // Guard 1: address must be below the process's declared size.
+  // Addresses at or above p->sz were never handed to the user by sbrk(),
+  // so they are always invalid — even if they haven't been faulted yet.
   if (va >= p->sz)
     return 0;
+
+  // Align the faulting address down to its page boundary.
+  // A fault anywhere inside a 4 KB page points us to the same physical page.
   va = PGROUNDDOWN(va);
+
+  // Guard 2: do not double-allocate.  If the page is already mapped
+  // (e.g. a re-entrant fault, or a page the exec loader already placed),
+  // return 0 so the caller does not overwrite the existing mapping.
   if(ismapped(pagetable, va)) {
     return 0;
   }
+
+  // Allocate one 4 KB physical page from the free list.
   mem = (uint64) kalloc();
   if(mem == 0)
-    return 0;
+    return 0;   // out of physical memory
+
+  // Zero the page — matches the documented behaviour of sbrk():
+  // newly allocated heap memory is always zero-initialised.
   memset((void *) mem, 0, PGSIZE);
-  if (mappages(p->pagetable, va, PGSIZE, mem, PTE_W|PTE_U|PTE_R) != 0) {
-    kfree((void *)mem);
+
+  // Map the physical page into the page table that caused the fault.
+  // BUG FIX (Member 3): the original code used p->pagetable here.
+  // That is wrong when vmfault is called from copyout/copyin, which pass
+  // the process's pagetable as a parameter that may differ in edge cases.
+  // Using the 'pagetable' parameter is both correct and consistent.
+  if (mappages(pagetable, va, PGSIZE, mem, PTE_W|PTE_U|PTE_R) != 0) {
+    kfree((void *)mem);   // mapping failed — release the physical page
     return 0;
   }
+
+  // Return the physical address of the freshly allocated page.
+  // The caller (usertrap or copyout/copyin) uses this to proceed.
   return mem;
 }
 
