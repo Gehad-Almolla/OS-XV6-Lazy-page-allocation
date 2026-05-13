@@ -253,6 +253,8 @@ growproc(int n)
 
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
+// Create a new process, copying the parent.
+// Sets up child kernel stack to return as if from fork() system call.
 int
 kfork(void)
 {
@@ -265,13 +267,18 @@ kfork(void)
     return -1;
   }
 
+  // Copy process size first.
+  // Needed for lazy page allocation so the
+  // child keeps the same virtual memory size.
+  np->sz = p->sz;
+
   // Copy user memory from parent to child.
+  // Lazy allocation support is handled inside uvmcopy().
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
     release(&np->lock);
     return -1;
   }
-  np->sz = p->sz;
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -283,6 +290,7 @@ kfork(void)
   for(i = 0; i < NOFILE; i++)
     if(p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
+
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
