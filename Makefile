@@ -199,7 +199,7 @@ UPROGS=\
 	$U/_comchannel\
 	$U/_Task\
 	$U/_task5\
-
+        $U/_lazytest
 ifeq ($(LAB),syscall)
 UPROGS += \
 	$U/_attack\
