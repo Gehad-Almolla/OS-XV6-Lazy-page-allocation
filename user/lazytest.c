@@ -98,6 +98,29 @@ void test_sbrk_size()
         printf("Test 4 FAILED ❌\n\n");
 }
 
+// Test 5: syscall string access
+void test_syscall_string()
+{
+    printf("Test 5: Syscall String Access\n");
+
+    char *buf = sbrk(100);
+
+    if (buf == (char*)-1)
+    {
+        printf("Test 5 FAILED ❌ (sbrk failed)\n\n");
+        return;
+    }
+
+    strcpy(buf, "nonexistentfile");
+
+    int fd = open(buf, 0);
+
+    if (fd >= 0)
+        close(fd);
+
+    printf("Test 5 PASSED ✅\n\n");
+}
+
 int main()
 {
     printf("=========================\n");
@@ -108,6 +131,7 @@ int main()
     test_large_alloc();
     test_fork_lazy();
     test_sbrk_size();
+    test_syscall_string();
 
     printf("=========================\n");
     printf("    All Tests Done!      \n");

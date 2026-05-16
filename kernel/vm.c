@@ -414,9 +414,13 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 
   while(got_null == 0 && max > 0){
     va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
+  pa0 = walkaddr(pagetable, va0);
+  if(pa0 == 0){
+    struct proc *p = myproc();
+    pa0 = vmfault(p->pagetable, srcva, 1);
     if(pa0 == 0)
       return -1;
+  }
     n = PGSIZE - (srcva - va0);
     if(n > max)
       n = max;
